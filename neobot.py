@@ -98,4 +98,7 @@ async def on_message(message):
         await message.channel.send(msg)
 
 
-client.run('NzQ2NzYyMzE5NTU1NzIzMzY0.X0FCmw.eXHoAtsRuCgn0NmfiW-QlyI8mGs')
+with open("token.txt", 'r') as f:
+    token = f.readline()
+
+client.run(token)
