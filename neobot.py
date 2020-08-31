@@ -2,9 +2,28 @@ import random
 import datetime
 import re
 
+from smtplib import SMTP
+from email.message import EmailMessage
+
 import discord
 
 client = discord.Client()
+
+
+def sendEmail(message):
+
+    msg = EmailMessage()
+    msg.set_content(message)
+    msg['Subject'] = "Neoroll suggest"
+    msg['From'] = "Noeroll"
+    msg['To'] = 'naaokth@free.fr'
+
+    smtp = SMTP('localhost')
+    # smtp.connect('smtp.free.fr', 465)
+    smtp.send_message(msg)
+    smtp.quit()
+
+    return "Suggestion enregistrée, merci"
 
 
 def parseResult(remain):
@@ -34,6 +53,8 @@ def help():
     *stats ou *s *--> affiche les statistiques du joueur*
     *reset ou *r *--> remet les statistiques du joueur à zero*
     *help ou *h *--> affiche ce message*
+
+    *suggest Suggestion *--> envoie un email avec la suggestion*
     """
 
 
@@ -143,7 +164,10 @@ async def on_message(message):
 
         initUserSession(ref_author)
 
-        if message.content.startswith(('*help', '*h')):
+        if message.content.startswith(('*suggest')):
+            msg = sendEmail(message.content)
+
+        elif message.content.startswith(('*help', '*h')):
             msg = help()
 
         elif message.content.startswith(('*reset', '*r')):
