@@ -1,5 +1,8 @@
-import discord
 import random
+import datetime
+import re
+
+import discord
 
 client = discord.Client()
 
@@ -26,7 +29,7 @@ def help():
     *5/3 *--> lance 5 dés blancs et 3 dés noirs*
     *2 *--> lance 2 dés blancs*
     *3/4 # Commentaire *--> lance les dés et ajoute un commentaire\
- près du résultat*
+ près du résultat (le # est optionnel)*
 
     *stats ou *s *--> affiche les statistiques du joueur*
     *reset ou *r *--> remet les statistiques du joueur à zero*
@@ -39,27 +42,30 @@ def roll(content, author, ref_author):
     Roll die
     """
 
-    comment = ""
-    withComment = "#" in content
+    reg_split = re.search(r'\*([0-9]+)\/*([0-9]*)\s*#*\s*(.*)', content)
 
-    if withComment:
-        splitComment = content.split("#")
-        content = splitComment[0].strip()
-        comment = splitComment[1].strip()
+    if reg_split is None:
+        raise SyntaxError
 
-    die = content[1:].split("/")
-    p = ['s' if int(x) > 1 else '' for x in die]
-    white = [random.randint(1, 6) for x in range(int(die[0]))]
+    # Collect groups
+    reg_groups = reg_split.groups()
+    white_die = int(reg_groups[0])
+    black_die = int(reg_groups[1]) if reg_groups[1] != "" else 0
+    comment = reg_groups[2]
 
-    if len(die) == 1:
+    # Roll die
+    p = ['s' if x > 1 else '' for x in [white_die, black_die]]
+    white = [random.randint(1, 6) for x in range(white_die)]
+
+    if black_die == 0:
         # Roll only white die
         result = parseResult(white)
-        msg = f"**{author}** *lance {die[0]} dé{p[0]} blanc{p[0]} \
+        msg = f"**{author}** *lance {white_die} dé{p[0]} blanc{p[0]} \
 {sorted(white)}* \n**{result}**"
 
     else:
         # Roll black and white die
-        black = [random.randint(1, 6) for x in range(int(die[1]))]
+        black = [random.randint(1, 6) for x in range(black_die)]
 
         remain = sorted(white[:])
         for x in black:
@@ -69,11 +75,11 @@ def roll(content, author, ref_author):
                 pass
 
         result = parseResult(remain)
-        msg = f"**{author}** *lance {die[0]} dé{p[0]} blanc{p[0]} \
-{sorted(white)} et {die[1]} dé{p[1]} noir{p[1]} {sorted(black)} avec pour \
+        msg = f"**{author}** *lance {white_die} dé{p[0]} blanc{p[0]} \
+{sorted(white)} et {black_die} dé{p[1]} noir{p[1]} {sorted(black)} avec pour \
 résultat {str(remain)}* \n**{result}**"
 
-    if withComment:
+    if comment != "":
         msg += f" # *{comment}*"
 
     records[ref_author].logit(result)
@@ -85,8 +91,8 @@ records = {}
 
 class recorder():
     def __init__(self, author):
-        self.logs = {}
         self.author = author
+        self.reset()
 
     def logit(self, entry):
         if entry in self.logs:
@@ -97,18 +103,19 @@ class recorder():
     def listAll(self):
         total = sum([v for v in self.logs.values()])
         msg = f"**Statistiques de jeu pour {self.author.display_name} \
-depuis TIME**\n"
+depuis le {self.datetime.strftime('%d/%m à %H:%M')}**\n"
         if len(self.logs) == 0:
             return msg+"Aucune pour le moment. \
 Allez on met le nez dans l'intrigue !"
         else:
-            sorted_logs = sorted(self.logs.items(), key=lambda v:v[1], reverse=True)
+            sorted_logs = sorted(self.logs.items(), key=lambda v: v[1], reverse=True)
             return msg+"\n".join([f'{row[1]} x {row[0]} \
 [{100.0/total*row[1]:.2f}%]' for row in sorted_logs])
 
     def reset(self):
         self.logs = {}
-        return f"La session de {self.author.display_name} a été remise à zerro"
+        self.datetime = datetime.datetime.now()
+        return f"La session de {self.author.display_name} a été remise à zero"
 
 
 def initUserSession(author):
@@ -128,26 +135,31 @@ async def on_message(message):
     if message.author == client.user:
         return
 
-    ref_author = message.author
-    author = message.author.display_name
-    msg = ""
+    if message.content.startswith('*'):
 
-    initUserSession(ref_author)
+        ref_author = message.author
+        author = message.author.display_name
+        msg = ""
 
-    if message.content.startswith(('*help', '*h')):
-        msg = help()
+        initUserSession(ref_author)
 
-    elif message.content.startswith(('*reset', '*r')):
-        msg = records[ref_author].reset()
+        if message.content.startswith(('*help', '*h')):
+            msg = help()
 
-    elif message.content.startswith(('*stats', '*s')):
-        msg = records[ref_author].listAll()
+        elif message.content.startswith(('*reset', '*r')):
+            msg = records[ref_author].reset()
 
-    elif message.content.startswith('*'):
-        msg = roll(message.content, author, ref_author)
+        elif message.content.startswith(('*stats', '*s')):
+            msg = records[ref_author].listAll()
 
-    if(msg != ""):
-        await message.channel.send(msg)
+        elif message.content.startswith('*'):
+            try:
+                msg = roll(message.content, author, ref_author)
+            except SyntaxError:
+                print(f"SyntaxError:{message.content} from {author}")
+
+        if(msg != ""):
+            await message.channel.send(msg)
 
 
 with open("token.txt", 'r') as f:
