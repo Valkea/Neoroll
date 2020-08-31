@@ -30,7 +30,7 @@ def help():
     """
 
 
-def roll(content, author):
+def roll(content, author, ref_author):
     """
     Roll die
     """
@@ -72,7 +72,46 @@ résultat {str(remain)}* \n**{result}**"
     if withComment:
         msg += f" # *{comment}*"
 
+    records[ref_author].logit(result)
     return msg
+
+
+records = {}
+
+
+class recorder():
+    def __init__(self, author):
+        self.logs = {}
+        self.author = author
+
+    def logit(self, entry):
+        if entry in self.logs:
+            self.logs[entry] += 1
+        else:
+            self.logs[entry] = 1
+
+    def listAll(self):
+        total = sum([v for v in self.logs.values()])
+        msg = f"**Statistiques de jeu pour {self.author.display_name} \
+            depuis TIME**\n"
+        if len(self.logs) == 0:
+            return msg+"Aucune pour le moment.\
+                Allez on met le nez dans l'intrigue !"
+        else:
+            return msg+"\n".join([f'{row} : {self.logs[row]}\
+                                  [{100.0/total*self.logs[row]:.2f}%]'
+                                  for row in self.logs])
+
+    def reset(self):
+        self.logs = {}
+        return f"La session de {self.author.display_name} a été remise à zerro"
+
+
+def initUserSession(author):
+    if author not in records:
+        records[author] = recorder(author)
+
+    # print(f"records:{records}\n{records[author].listAll():}")
 
 
 @client.event
@@ -85,14 +124,23 @@ async def on_message(message):
     if message.author == client.user:
         return
 
+    ref_author = message.author
     author = message.author.display_name
     msg = ""
 
-    if message.content.startswith('*help'):
+    initUserSession(ref_author)
+
+    if message.content.startswith(('*help', '*h')):
         msg = help()
 
+    elif message.content.startswith(('*reset', '*r')):
+        msg = records[ref_author].reset()
+
+    elif message.content.startswith(('*stats', '*s')):
+        msg = records[ref_author].listAll()
+
     elif message.content.startswith('*'):
-        msg = roll(message.content, author)
+        msg = roll(message.content, author, ref_author)
 
     if(msg != ""):
         await message.channel.send(msg)
