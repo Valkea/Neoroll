@@ -27,6 +27,10 @@ def help():
     *2 *--> lance 2 dés blancs*
     *3/4 # Commentaire *--> lance les dés et ajoute un commentaire\
  près du résultat*
+
+    *stats ou *s *--> affiche les statistiques du joueur*
+    *reset ou *r *--> remet les statistiques du joueur à zero*
+    *help ou *h *--> affiche ce message*
     """
 
 
