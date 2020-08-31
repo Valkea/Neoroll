@@ -97,14 +97,13 @@ class recorder():
     def listAll(self):
         total = sum([v for v in self.logs.values()])
         msg = f"**Statistiques de jeu pour {self.author.display_name} \
-            depuis TIME**\n"
+depuis TIME**\n"
         if len(self.logs) == 0:
-            return msg+"Aucune pour le moment.\
-                Allez on met le nez dans l'intrigue !"
+            return msg+"Aucune pour le moment. \
+Allez on met le nez dans l'intrigue !"
         else:
-            return msg+"\n".join([f'{row} : {self.logs[row]}\
-                                  [{100.0/total*self.logs[row]:.2f}%]'
-                                  for row in self.logs])
+            return msg+"\n".join([f'{row} : {self.logs[row]} \
+[{100.0/total*self.logs[row]:.2f}%]' for row in self.logs])
 
     def reset(self):
         self.logs = {}
