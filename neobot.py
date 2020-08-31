@@ -102,8 +102,9 @@ depuis TIME**\n"
             return msg+"Aucune pour le moment. \
 Allez on met le nez dans l'intrigue !"
         else:
-            return msg+"\n".join([f'{row} : {self.logs[row]} \
-[{100.0/total*self.logs[row]:.2f}%]' for row in self.logs])
+            sorted_logs = sorted(self.logs.items(), key=lambda v:v[1], reverse=True)
+            return msg+"\n".join([f'{row[1]} x {row[0]} \
+[{100.0/total*row[1]:.2f}%]' for row in sorted_logs])
 
     def reset(self):
         self.logs = {}
