@@ -55,6 +55,8 @@ def help():
     *help ou *h *--> affiche ce message*
 
     *suggest Suggestion *--> envoie un email avec la suggestion*
+
+    **Si vous effacez votre commande, Neoroll effacera sa réponse**
     """
 
 
@@ -108,6 +110,7 @@ résultat {str(remain)}* \n**{result}**"
 
 
 records = {}
+global_logs = {}
 
 
 class recorder():
@@ -150,9 +153,9 @@ def initUserSession(author):
 async def on_ready():
     print('We have logged in as {0.user}'.format(client))
 
-
 @client.event
 async def on_message(message):
+
     if message.author == client.user:
         return
 
@@ -183,7 +186,17 @@ async def on_message(message):
                 print(f"SyntaxError:{message.content} from {author}")
 
         if(msg != ""):
-            await message.channel.send(msg)
+            sent = await message.channel.send(msg)
+            global_logs[message.id] = (message, sent)
+
+
+@client.event
+async def on_raw_message_delete(message):
+    id = message.message_id
+    if id in global_logs:
+        await global_logs[id][1].delete()
+        del global_logs[id]
+        print(f"The global_logs size is {len(global_logs)}")
 
 
 with open("token.txt", 'r') as f:
