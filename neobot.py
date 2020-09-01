@@ -10,11 +10,11 @@ import discord
 client = discord.Client()
 
 
-def sendEmail(message):
+def sendEmail(message, author):
 
     msg = EmailMessage()
     msg.set_content(message)
-    msg['Subject'] = "Neoroll suggest"
+    msg['Subject'] = f"Neoroll suggest from {author}"
     msg['From'] = "Noeroll"
     msg['To'] = 'naaokth@free.fr'
 
@@ -153,6 +153,7 @@ def initUserSession(author):
 async def on_ready():
     print('We have logged in as {0.user}'.format(client))
 
+
 @client.event
 async def on_message(message):
 
@@ -168,7 +169,7 @@ async def on_message(message):
         initUserSession(ref_author)
 
         if message.content.startswith(('*suggest')):
-            msg = sendEmail(message.content)
+            msg = sendEmail(message.content, author)
 
         elif message.content.startswith(('*help', '*h')):
             msg = help()
