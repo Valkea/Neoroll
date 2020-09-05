@@ -251,23 +251,27 @@ async def on_message(message):
 
         initUserSession(ref_author)
 
-        if message.content.startswith(('*suggest')):
-            msg = sendEmail(message.content, ref_author)
+        cmd = message.content
 
-        elif message.content.startswith(('*help', '*h')):
-            msg = help()
+        if re.search("^\*[^0-9]", cmd):
 
-        elif message.content.startswith(('*reset', '*r')):
-            msg = records[ref_author].reset()
+            if cmd.startswith(('*suggest')):
+                msg = sendEmail(cmd, ref_author)
 
-        elif message.content.startswith(('*stats', '*s')):
-            msg = records[ref_author].listAll()
+            elif re.search("^(\*help|\*h)$", cmd):
+                msg = help()
 
-        elif message.content.startswith('*'):
+            elif re.search("^(\*reset|\*r)$", cmd):
+                msg = records[ref_author].reset()
+
+            elif re.search("^(\*stats|\*s)$", cmd):
+                    msg = records[ref_author].listAll()
+
+        else:
             try:
-                msg = roll(message.content, ref_author)
+                msg = roll(cmd, ref_author)
             except SyntaxError:
-                print(f"SyntaxError:{message.content} from {author}")
+                print(f"SyntaxError:{cmd} from {ref_author.name}")
 
         if(msg != ""):
             sent = await message.channel.send(msg)
