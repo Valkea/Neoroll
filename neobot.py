@@ -1,3 +1,54 @@
+#! /usr/bin/env python3
+# coding: utf-8
+
+"""
+Neobot is a rolling die Discord bot for the Neon city overdrive tabletop RPG
+
+It's system requires to roll both white and black die so the black ones can
+cancel successes from the white ones. Then we use the max remaining value
+in order to determine the result:
+    - 1, 2, 3 --> Failure
+    - 4,5 --> Partial success
+    - 6 --> Success
+    - x times 6 --> Critical success with x-1 bonus
+    - 0 remaining die --> Fumble
+
+
+** CLASSES **
+
+class: recorder
+    method: __init__(self, author)
+    method: logit(self, entry)
+    method: listAll(self)
+    method: reset(self)
+
+
+** GLOBAL METHODS **
+
+    method: sendEmail(message, author)
+
+    method: parseResult(remain)
+
+    method: help()
+
+    method: roll(content, author, ref_author)
+
+    method: initUserSession(author)
+
+** EVENT METHODS **
+
+    client.event: async def on_ready()
+    client.event: async def on_message(message)
+    client.event: async def on_raw_message_delete(message)
+
+** GLOBAL VARIABLES **
+
+    variable: clients
+    variable: records
+    variable: global_logs
+
+"""
+
 import random
 import datetime
 import re
@@ -8,22 +59,37 @@ from email.message import EmailMessage
 import discord
 
 client = discord.Client()
+records = {}
+global_logs = {}
 
 
 def sendEmail(message, author):
+    """
+    Sends an email to the admin with the associated message and author name
 
-    msg = EmailMessage()
-    msg.set_content(message)
-    msg['Subject'] = f"Neoroll suggest from {author}"
-    msg['From'] = "Noeroll"
-    msg['To'] = 'naaokth@free.fr'
+    Args:
+        message(str): the message to send to the admin
+        author(str): the current name of the message author
 
-    smtp = SMTP('localhost')
-    # smtp.connect('smtp.free.fr', 465)
-    smtp.send_message(msg)
-    smtp.quit()
+    Returns:
+        str: a message confirming that the email was send
+    """
 
-    return "Suggestion enregistrée, merci"
+    try:
+        msg = EmailMessage()
+        msg.set_content(message)
+        msg['Subject'] = f"Neoroll suggest from {author.name}"
+        msg['From'] = 'naaokth@free.fr'
+        msg['To'] = 'naaokth@free.fr'
+
+        smtp = SMTP('localhost')
+        # smtp.connect('smtp.free.fr', 465)
+        smtp.send_message(msg)
+        smtp.quit()
+    except:
+        return "L'email de suggestion n'a pas pu être envoyé"
+    else:
+        return "L'email de suggestion a été enregistré, merci"
 
 
 def parseResult(remain):
@@ -44,6 +110,13 @@ def parseResult(remain):
 
 
 def help():
+    """
+    Returns a text message to display when the *help command is called.
+
+    Returns:
+        str: a message containing  all the informations about the bot commands.
+    """
+
     return """**Liste des commandes**:
     *5/3 *--> lance 5 dés blancs et 3 dés noirs*
     *2 *--> lance 2 dés blancs*
@@ -52,6 +125,7 @@ def help():
 
     *stats ou *s *--> affiche les statistiques du joueur*
     *reset ou *r *--> remet les statistiques du joueur à zero*
+
     *help ou *h *--> affiche ce message*
 
     *suggest Suggestion *--> envoie un email avec la suggestion*
@@ -60,13 +134,27 @@ def help():
     """
 
 
-def roll(content, author, ref_author):
+def roll(content, author):
     """
-    Roll die
+    Parses the message sent by the author in order to get the rolling command,
+    then execute this command and returns the appropriate answer.
+
+    Args:
+        content(str): A text message to parse to get the command.
+        author(str): The author of the command.
+
+    Returns:
+        str: a message with the result generated with the parsed command.
+
+    Raises:
+        SyntaxError: An error occured because of a wrong command call.
     """
+
+    display_name = author.display_name
 
     reg_split = re.search(r'\*([0-9]+)\/*([0-9]*)\s*#*\s*(.*)', content)
 
+    # Verify is the command is valid
     if reg_split is None:
         raise SyntaxError
 
@@ -83,7 +171,7 @@ def roll(content, author, ref_author):
     if black_die == 0:
         # Roll only white die
         result = parseResult(white)
-        msg = f"**{author}** *lance {white_die} dé{p[0]} blanc{p[0]} \
+        msg = f"**{display_name}** *lance {white_die} dé{p[0]} blanc{p[0]} \
 {sorted(white)}* \n**{result}**"
 
     else:
@@ -98,19 +186,15 @@ def roll(content, author, ref_author):
                 pass
 
         result = parseResult(remain)
-        msg = f"**{author}** *lance {white_die} dé{p[0]} blanc{p[0]} \
+        msg = f"**{display_name}** *lance {white_die} dé{p[0]} blanc{p[0]} \
 {sorted(white)} et {black_die} dé{p[1]} noir{p[1]} {sorted(black)} avec pour \
 résultat {str(remain)}* \n**{result}**"
 
     if comment != "":
         msg += f" # *{comment}*"
 
-    records[ref_author].logit(result)
+    records[author].logit(result)
     return msg
-
-
-records = {}
-global_logs = {}
 
 
 class recorder():
@@ -163,13 +247,12 @@ async def on_message(message):
     if message.content.startswith('*'):
 
         ref_author = message.author
-        author = message.author.display_name
         msg = ""
 
         initUserSession(ref_author)
 
         if message.content.startswith(('*suggest')):
-            msg = sendEmail(message.content, author)
+            msg = sendEmail(message.content, ref_author)
 
         elif message.content.startswith(('*help', '*h')):
             msg = help()
@@ -182,13 +265,15 @@ async def on_message(message):
 
         elif message.content.startswith('*'):
             try:
-                msg = roll(message.content, author, ref_author)
+                msg = roll(message.content, ref_author)
             except SyntaxError:
                 print(f"SyntaxError:{message.content} from {author}")
 
         if(msg != ""):
             sent = await message.channel.send(msg)
             global_logs[message.id] = (message, sent)
+
+    # print(f"---> message:{message}")
 
 
 @client.event
