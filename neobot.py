@@ -94,8 +94,6 @@ def sendEmail(message, author):
 
 def parseResult(remain, author):
 
-    print(f"remain:{remain}")
-
     if len(remain) == 0:
         return "Fumble"
     else:
@@ -105,7 +103,6 @@ def parseResult(remain, author):
         elif maxValue <= 5:
             c = remain.count(5)
             n, r = divmod(c, 2)
-            print(f"{n} <---> {r}")
             if n > 0:
                 tmp = remain[:]
                 tmp.remove(5)
@@ -114,7 +111,6 @@ def parseResult(remain, author):
 
                 logstat = f"__{n} double [5] --> {n} nouveau [6]__"
                 records[author].logit(logstat)
-                print(logstat)
                 return parseResult(tmp, author)
             else:
                 return "Réussite partielle"
@@ -152,10 +148,10 @@ def help():
 
 def loopRoll(content, author, message):
 
-    reg_split = re.search(r'\*loop ([0-9]+)\s{1}(.*)', content)
+    reg_split = re.search(r'^(\*loop|\*l) ([0-9]+)\s{1}(.*)', content)
     reg_groups = reg_split.groups()
-    loop = int(reg_groups[0])
-    cmd = reg_groups[1]
+    loop = int(reg_groups[1])
+    cmd = reg_groups[2]
     for i in range(loop):
         roll(cmd, author)+"\n"
 
@@ -235,25 +231,28 @@ class recorder():
             self.logs[entry] = 1
 
     def listAll(self):
-        #total = sum([v for v in self.logs.values()])
-        total = sum([v for k, v in self.logs.items() if not k.startswith("__")])
-        print(f"total:{total}")
+        total = sum([v for k, v in self.logs.items()
+                     if not k.startswith("__")])
         msg = f"**Statistiques de jeu pour {self.author.display_name} \
 depuis le {self.datetime.strftime('%d/%m à %H:%M')}**\n"
         if len(self.logs) == 0:
             return msg+"Aucune pour le moment. \
 Allez on met le nez dans l'intrigue !"
         else:
-            sorted_logs = sorted(self.logs.items(), key=lambda v: v[1], reverse=True)
+            sorted_logs = sorted(self.logs.items(),
+                                 key=lambda v: v[1],
+                                 reverse=True)
 
             # Print regular rolls
-            msg+="\n".join([f'{row[1]} x {row[0]} \
-[{100.0/total*row[1]:.2f}%]' for row in sorted_logs if not row[0].startswith("__")])
+            msg += "\n".join([f'{row[1]} x {row[0]} \
+[{100.0/total*row[1]:.2f}%]' for row in sorted_logs
+                              if not row[0].startswith("__")])
 
             # Print special cases
             special_msg = "-"*50
             special_msg += "\n"+"\n".join([f'{row[1]} x {row[0]} \
-[{100.0/total*row[1]:.2f}%]' for row in sorted_logs if row[0].startswith("__")])
+[{100.0/total*row[1]:.2f}%]' for row in sorted_logs
+                                           if row[0].startswith("__")])
 
             # Return the full stats
             return msg+"\n"+special_msg
@@ -289,34 +288,38 @@ async def on_message(message):
 
         initUserSession(ref_author)
 
-        if message.content.startswith(('*suggest')):
-            msg = sendEmail(message.content, ref_author)
+        cmd = message.content
 
-        elif message.content.startswith(('*help', '*h')):
-            msg = help()
+        if re.search("^\*[0-9]", cmd):
 
-        elif message.content.startswith(('*reset', '*r')):
-            msg = records[ref_author].reset()
-
-        elif message.content.startswith(('*stats', '*s')):
-            msg = records[ref_author].listAll()
-
-        elif message.content.startswith(('*loop', '*l')):
-            records[ref_author].reset()
-            loopRoll(message.content, ref_author, message)
-            msg = records[ref_author].listAll()
-
-        elif message.content.startswith('*'):
             try:
-                msg = roll(message.content, ref_author)
+                msg = roll(cmd, ref_author)
             except SyntaxError:
-                print(f"SyntaxError:{message.content} from {author}")
+                print(f"SyntaxError:{cmd} from {ref_author}")
+
+        else:
+
+            if cmd.startswith(('*suggest')):
+                msg = sendEmail(message.content, ref_author)
+
+            elif re.search("^(\*help|\*h)$", cmd):
+                msg = help()
+
+            elif re.search("^(\*reset|\*r)$", cmd):
+                msg = records[ref_author].reset()
+
+            elif re.search("^(\*stats|\*s)$", cmd):
+                msg = records[ref_author].listAll()
+
+            elif message.content.startswith(('*loop', '*l')):
+                records[ref_author].reset()
+                loopRoll(message.content, ref_author, message)
+                msg = records[ref_author].listAll()
+
 
         if(msg != ""):
             sent = await message.channel.send(msg)
             global_logs[message.id] = (message, sent)
-
-    # print(f"---> message:{message}")
 
 
 @client.event
